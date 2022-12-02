@@ -1,41 +1,92 @@
+import argparse
 import json
-import os
-import shutil
+import pathlib
 import sys
+
 import urllib3
 
-# Set API endpoint used to retrieve custom emojis
-CUSTOM_EMOJIS_URL = ""
+# Use argparse to add arguments and flags that will be used in the main
+# portion of the script
+parser = argparse.ArgumentParser(
+    description="Fetches custom emojis from a Mastodon instance"
+)
+parser.add_argument("endpoint", type=str, help="Custom emoji API endpoint URL")
+parser.add_argument(
+    "--dry-run",
+    action="store_true",
+    help="Fetch and parse custom emojis, but do not download any files",
+)
+parser.add_argument("--verbose", "-v", action="store_true", help="Verbose output")
+parser.add_argument(
+    "--output",
+    "-o",
+    type=str,
+    default="output",
+    help="Output path for the downloaded custom emojis",
+)
+args = parser.parse_args()
 
-http = urllib3.PoolManager()
-custom_emojis_req = http.request("GET", CUSTOM_EMOJIS_URL)
+# Only continue if an API endpoint is provided
+if args.endpoint:
+    http = urllib3.PoolManager()
+    try:
+        custom_emojis_req = http.request("GET", args.endpoint)
 
-# Fetch and loop through the results, if the response status is 200
-if custom_emojis_req.status == 200:
-    custom_emojis_json = custom_emojis_req.data
-    custom_emojis_req.release_conn()
-    custom_emojis = json.loads(custom_emojis_json.decode("utf-8"))
+        # Fetch data from the custom emoji API endpoint
+        if custom_emojis_req.status == 200:
+            custom_emojis_json = custom_emojis_req.data
+            custom_emojis_req.release_conn()
+            custom_emojis = json.loads(custom_emojis_json.decode("utf-8"))
 
-    # Check to see if output directory exists, and create if necessary
-    if not os.path.exists("output"):
-        try:
-            os.makedirs("output", exist_ok=True)
-        except:
-            print("Error: Unable to create 'output' directory.")
-            sys.exit(1)
+            # Create an absolute path from the output argument
+            output_path = pathlib.Path(args.output)
+            path = output_path.resolve()
 
-    for custom_emoji in custom_emojis:
-        short_code = custom_emoji["shortcode"]
-        url = custom_emoji["url"]
+            if not args.dry_run:
+                # Check to see if output path exists, create if necessary,
+                # or if the output path is a directory
+                if not path.exists():
+                    try:
+                        path.mkdir()
+                    except PermissionError:
+                        print(f"Error: Unable to create {path} directory. Exiting.")
+                        sys.exit(1)
+                elif not path.is_dir():
+                    print(f"{path} is not a directory. Exiting.")
+                    sys.exit(1)
 
-        # TODO: This logic assumes that all custom emojis are in PNG format
-        # though GIF is also supported. Need to update logic to use the
-        # file extension that is provided in the URL
-        file_path = os.path.join("output", f"{short_code}.png")
+            # Loop through each custom emoji in the response data and
+            # download the files to the requested output path
+            for custom_emoji in custom_emojis:
+                short_code = custom_emoji["shortcode"]
+                url = custom_emoji["static_url"]
 
-        with http.request("GET", url, preload_content=False) as resp, open(file_path, "wb") as emoji:
-            shutil.copyfileobj(resp, emoji)
+                # Parse the URL for the custom emoji and get the file
+                # extension
+                source_file_url = urllib3.util.parse_url(url)
+                source_file_path = source_file_url.path
+                source_file_ext = pathlib.Path(source_file_path).suffix
 
-        resp.release_conn()
+                # Generate the output file path
+                file_path = path / f"{short_code}{source_file_ext}"
+                short_file_path = output_path / f"{short_code}{source_file_ext}"
+
+                if args.dry_run:
+                    print(f"[DRY RUN] Fetching {source_file_path} -> {short_file_path}")
+                if not args.dry_run:
+                    print(f"Fetching {source_file_path} -> {short_file_path}")
+                    emoji = http.request("GET", url, preload_content=False)
+
+                    if emoji.status == 200:
+                        file_path.write_bytes(emoji.data)
+                        emoji.release_conn()
+                    else:
+                        print(f"Skipping {url} due to HTTP status code {emoji.status}.")
+        else:
+            custom_emojis_req.release_conn()
+    except (urllib3.exceptions.NewConnectionError, urllib3.exceptions.MaxRetryError):
+        print("Unable to access API endpoint provided. Exiting.")
+        sys.exit(1)
 else:
-    custom_emojis_req.release_conn()
+    print("No API endpoint provided. Exiting.")
+    sys.exit(1)

@@ -1,5 +1,6 @@
 {
     "cSpell.words": [
         "shortcode"
-    ]
+    ],
+    "python.formatting.provider": "black"
 }

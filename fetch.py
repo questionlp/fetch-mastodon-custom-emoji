@@ -16,7 +16,6 @@ parser.add_argument(
     action="store_true",
     help="Fetch and parse custom emojis, but do not download any files",
 )
-parser.add_argument("--verbose", "-v", action="store_true", help="Verbose output")
 parser.add_argument(
     "--output",
     "-o",

@@ -1,16 +1,34 @@
 # fetch-mastodon-custom-emoji
 
-A very rudimentary Python script that fetches the list of custom emojis from a Mastodon API endpoint and downloads each custom emoji out, using the short code value as the file name.
+A very rudimentary Python script that fetches the list of and downloads a copy of custom emojis from a Mastodon instance, using the custom emoji API endpoint. The script downloads each custom emoji, saving them into an output directory and names each file based on the custom emoji's short code.
 
 This script requires Python 3.6 or newer, though it is only tested with Python 3.8 and 3.10.
 
+## Setting Up the Script
+
+Included in this repository is a `requirements.txt` file that includes any of the required packages that the script needs to run. To install the dependencies, run the following command (preferably in a virtual environment):
+
+```bash
+pip3 install -r requirements.txt
+```
+
 ## Using the Script
 
-Currently, the API endpoint is defined within the script itself by setting a value to the `CUSTOM_EMOJIS_URL` variable.
+In order to use the Python script to download custom emojis from a Mastodon instance, you will need to define the custom emoji API endpoint for that instance. By default, the custom emoji API endpoint path is `/api/v1/custom_emojis`.
 
-This script requires [urllib3](https://pypi.org/project/urllib3/) to be installed and it is referenced in the included `requirements.txt` file.
+For example, if you want to download custom emojis from a Mastodon instance available at `mastodon.example.org`, the default custom emoji API endpoint for that instance would be:
 
-With a valid API endpoint defined and the required dependencies are installed, running the script will fetch data from the API endpoint and loop through the results. For each custom emoji that it encounters, it will download the image, using the emoji's short code as the file name and writes out to the `output` directory.
+```text
+https://mastodon.example.org/api/v1/custom_emojis
+```
+
+To use the script against any given custom emoji API endpoint, you would pass that URL as an argument when running the script:
+
+```bash
+python3 fetch.py [-o output-path] custom-emoji-api-endpoint
+```
+
+The `-o` option is used to save the downloaded custom emoji files to a specific location. By default, the script will create a directory named `output` (if it doesn't already exist) and save the files directly into the directory.
 
 ## Code of Conduct
 
